@@ -1,6 +1,5 @@
 from Genome import Genome
 from Population import Population
-from Operator import Operator
 import random
 from SelectionOperator import SelectionOperator
 
