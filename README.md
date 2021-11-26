@@ -6,7 +6,7 @@ Aquí subiré todos los proyectos del grado de Ingeniería informática de la UP
 Son los proyectos que me han mandado desde el segundo año.
 Estos proyectos serán subidos una vez estén aprobados y, por tanto, funcionen correctamente, lo cual no quiere decir que funcionen de la forma más eficiente posible. No creo que haya cambios ya que no son proyectos a los que le quiera dedicar mucho más tiempo.
 
-Si quieres usarlos como apoyo para terminar los tuyos, eres libre de hacerlo, solo ten en cuenta que es posible que tu proyecto haya cambiado ligeramente con respecto al mío y que existen los programas para detectar copias.
+Si quieres usarlos como apoyo para terminar los tuyos, eres libre de hacerlo, solo ten en cuenta que es posible que tu proyecto haya cambiado ligeramente con respecto al mío y que existen programas para detectar copias.
 
 -----------------------------------------------------------------------------------------------------------------------------------
 
