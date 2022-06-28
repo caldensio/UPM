@@ -85,11 +85,7 @@ int main(int argc, char *argv[]) {
                 if (get(&ntema, &evento, &tam)<0)
                     printf("error leyendo evento\n");
                 else {
-                        printf("Tema test:: %s\n", ntema);
-                        printf("Tam test:: %d\n", tam);
-                        printf("Evento test:: %s\n", evento);
                     if (tam) {
-                        printf("evento leído: tema %s\n", ntema);
                         char *fich=NULL;
                         int fd;
                         do {

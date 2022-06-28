@@ -9,11 +9,10 @@
 
 
 int main(int argc, char*argv[]){
-    char * dest = "dest";
-    char * src = "src";
-    char buf[strlen(dest)+strlen(src)];
-    strcat(buf,dest);
-    strcat(buf,src);
-    printf("%s\n",buf);
-    return 0;
+    char * oper = "S";
+    char selector = oper[0];
+    if (selector == 'S')
+        printf("char normal");
+    else
+        printf("string");
 }
