@@ -12,10 +12,12 @@
 
 
 int client_socket;
+UUID_t uuid;
 struct cabecera{
     int long1;
     int long2;
     int long3;
+    int long4;
 };
 
 
@@ -39,8 +41,8 @@ __attribute__((destructor)) void fin(void){
     }
 }
 
-// operaciones que implementan la funcionalidad del proyecto
-int begin_clnt(void){
+
+int crear_y_conectar(){
     if((client_socket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0){
         perror("Error al crear el socket\n");
         return -1;
@@ -58,29 +60,95 @@ int begin_clnt(void){
         perror("Error al crear la conexion, revise la IP designada\n");
         return -1;
     }
-    UUID_t uuid_cliente;
-    generate_UUID(uuid_cliente);
-    send(client_socket, uuid_cliente, sizeof(uuid_cliente), 0);
+    return client_socket;
+}
+
+// operaciones que implementan la funcionalidad del proyecto
+int begin_clnt(void){
+
+    client_socket = crear_y_conectar();
+
+    if(strlen(uuid)==0){ 
+        generate_UUID(uuid);
+    }
+    int escrito;
+    struct cabecera cab;
+    char * oper = "R"; 
+    cab.long1=htonl(strlen(oper));
+    cab.long2=htonl(strlen(uuid));
+    cab.long3=htonl(0);
+    cab.long4=htonl(0);
+    struct iovec iov[3];
+    iov[0].iov_base=&cab;
+    iov[0].iov_len=sizeof(cab);
+    iov[1].iov_base=oper;
+    iov[1].iov_len=strlen(oper);
+    iov[2].iov_base=uuid;
+    iov[2].iov_len=strlen(uuid);
+    if((escrito=writev(client_socket,iov,3))<0){
+        perror("Error en el writev\n");
+        close(client_socket);
+        return -1;
+    }
     int res;
     if(recv(client_socket, &res, sizeof(res), MSG_WAITALL)>0)
         return res;
     printf("Se ha creado la conexión");
+    //close(client_socket);
     return 0;
 }
 int end_clnt(void){
+
+    //client_socket = crear_y_conectar();
+
     char *str= "B";
     int res=0;
     int escrito;
     struct cabecera cab;
     cab.long1=htonl(strlen(str));
-    cab.long2=htonl(0);
+    cab.long2=htonl(strlen(uuid));
     cab.long3=htonl(0);
-    struct iovec iov[2];
+    cab.long4=htonl(0);
+    struct iovec iov[3];
     iov[0].iov_base=&cab;
     iov[0].iov_len=sizeof(cab);
     iov[1].iov_base=str;
     iov[1].iov_len=strlen(str);
-    if((escrito=writev(client_socket,iov,2))<0){
+    iov[2].iov_base=uuid;
+    iov[2].iov_len=strlen(uuid);
+    if((escrito=writev(client_socket,iov,3))<0){
+        perror("Error en el writev\n");
+        close(client_socket);
+        return -1;
+    }
+    recv(client_socket, &res, sizeof(res), MSG_WAITALL);
+    close(client_socket);
+    return res;
+}
+int subscribe(const char *tema){
+
+    //client_socket=crear_y_conectar();
+
+    int res;
+    int escrito;
+    struct cabecera cab;
+
+    char * oper = "S"; 
+    cab.long1=htonl(strlen(oper));
+    cab.long2=htonl(strlen(uuid));
+    cab.long3=htonl(strlen(tema));
+    cab.long4=htonl(0);
+    struct iovec iov[4];
+    iov[0].iov_base=&cab;
+    iov[0].iov_len=sizeof(cab);
+    iov[1].iov_base=oper;
+    iov[1].iov_len=strlen(oper);
+    iov[2].iov_base=uuid;
+    iov[2].iov_len=strlen(uuid);
+    iov[3].iov_base=tema;
+    iov[3].iov_len=strlen(tema);
+
+    if((escrito=writev(client_socket,iov,4))<0){
         perror("Error en el writev\n");
         close(client_socket);
         return -1;
@@ -89,107 +157,88 @@ int end_clnt(void){
     //close(client_socket);
     return res;
 }
-int subscribe(const char *tema){
-    int res;
-    int escrito;
-    struct cabecera cab;
-    /* char str[strlen(tema)+1];
-    for(int i=0; i<strlen(tema)+1; i++){
-        if(i==0)str[i]='S';
-        else str[i]=tema[i-1];
-    } */  
-    char * oper = "S"; 
-    cab.long1=htonl(strlen(oper));
-    cab.long2=htonl(strlen(tema));
-    cab.long3=htonl(0);
-    struct iovec iov[3];
-    iov[0].iov_base=&cab;
-    iov[0].iov_len=sizeof(cab);
-    iov[1].iov_base=oper;
-    iov[1].iov_len=strlen(oper);
-    iov[2].iov_base=tema;
-    iov[2].iov_len=strlen(tema);
-
-    if((escrito=writev(client_socket,iov,3))<0){
-        perror("Error en el writev\n");
-        close(client_socket);
-        return -1;
-    }
-    recv(client_socket, &res, sizeof(res), MSG_WAITALL);
-    return res;
-}
 int unsubscribe(const char *tema){
+
+    //client_socket = crear_y_conectar();
+
     int res;
     int escrito;
     struct cabecera cab;
-    /* char str[strlen(tema)+1];
-    for(int i=0; i<strlen(tema)+1; i++){
-        if(i==0)str[i]='U';
-        else str[i]=tema[i-1];
-    } */
     char * oper = "U";
     cab.long1=htonl(strlen(oper));
-    cab.long2=htonl(strlen(tema));
-    cab.long3=htonl(0);
-    struct iovec iov[3];
-    iov[0].iov_base=&cab;
-    iov[0].iov_len=sizeof(cab);
-    iov[1].iov_base=oper;
-    iov[1].iov_len=strlen(oper);
-    iov[2].iov_base=tema;
-    iov[2].iov_len=strlen(tema);
-    if((escrito=writev(client_socket,iov,3))<0){
-        perror("Error en el writev\n");
-        close(client_socket);
-        return -1;
-    }
-    recv(client_socket, &res, sizeof(res), MSG_WAITALL);
-    return res;
-}
-int publish(const char *tema, const void *evento, uint32_t tam_evento){
-    int escrito;
-    struct cabecera cab;
-    /* char str[strlen(tema)+1];
-    for(int i=0; i<strlen(tema)+1; i++){
-        if(i==0)str[i]='P';
-        else str[i]=tema[i-1];
-    }
-    printf("%s\n", str); */
-    char * oper = "P";
-    cab.long1=htonl(strlen(oper));
-    cab.long2=htonl(strlen(tema));
-    cab.long3=htonl(tam_evento);
+    cab.long2=htonl(strlen(uuid));
+    cab.long3=htonl(strlen(tema));
+    cab.long4=htonl(0);
     struct iovec iov[4];
     iov[0].iov_base=&cab;
     iov[0].iov_len=sizeof(cab);
     iov[1].iov_base=oper;
     iov[1].iov_len=strlen(oper);
-    iov[2].iov_base=tema;
-    iov[2].iov_len=strlen(tema);
-    iov[3].iov_base=evento;
-    iov[3].iov_len=tam_evento;
+    iov[2].iov_base=uuid;
+    iov[2].iov_len=strlen(uuid);
+    iov[3].iov_base=tema;
+    iov[3].iov_len=strlen(tema);
     if((escrito=writev(client_socket,iov,4))<0){
+        perror("Error en el writev\n");
+        close(client_socket);
+        return -1;
+    }
+    recv(client_socket, &res, sizeof(res), MSG_WAITALL);
+    //close(client_socket);
+    return res;
+}
+int publish(const char *tema, const void *evento, uint32_t tam_evento){
+
+    //client_socket = crear_y_conectar();
+
+    int escrito;
+    struct cabecera cab;
+    char * oper = "P";
+    cab.long1=htonl(strlen(oper));
+    cab.long2=htonl(strlen(uuid));
+    cab.long3=htonl(strlen(tema));
+    cab.long4=htonl(tam_evento);
+
+    struct iovec iov[5];
+    iov[0].iov_base=&cab;
+    iov[0].iov_len=sizeof(cab);
+    iov[1].iov_base=oper;
+    iov[1].iov_len=strlen(oper);
+    iov[2].iov_base=uuid;
+    iov[2].iov_len=strlen(uuid);
+    iov[3].iov_base=tema;
+    iov[3].iov_len=strlen(tema);
+    iov[4].iov_base=evento;
+    iov[4].iov_len=tam_evento;
+    if((escrito=writev(client_socket,iov,5))<0){
         perror("Error en el writev\n");
         close(client_socket);
         return -1;
     }
     int res;
     recv(client_socket, &res, sizeof(res), MSG_WAITALL);
+    //close(client_socket);
     return res;
 }
 int get(char **tema, void **evento, uint32_t *tam_evento){
+
+    //client_socket = crear_y_conectar();
+
     char * str = "G";
     int escrito;
     struct cabecera cab;
     cab.long1=htonl(strlen(str));
-    cab.long2=htonl(0);
+    cab.long2=htonl(strlen(uuid));
     cab.long3=htonl(0);
-    struct iovec iov[2];
+    cab.long4=htonl(0);
+    struct iovec iov[3];
     iov[0].iov_base=&cab;
     iov[0].iov_len=sizeof(cab);
     iov[1].iov_base=str;
     iov[1].iov_len=strlen(str);
-    if((escrito=writev(client_socket,iov,2))<0){
+    iov[2].iov_base=uuid;
+    iov[2].iov_len=strlen(uuid);
+    if((escrito=writev(client_socket,iov,3))<0){
         perror("Error en el writev\n");
         close(client_socket);
         return -1;
@@ -209,100 +258,126 @@ int get(char **tema, void **evento, uint32_t *tam_evento){
     tema[0] = dato1;
     evento[0] = dato2;
     tam_evento[0] = tam2;
+    
+    //close(client_socket);
     return 0;
 }
 
 // operaciones que facilitan la depuración y la evaluación
 int topics(){ // cuántos temas existen en el sistema
+    
+    //client_socket = crear_y_conectar();
+
     char *str= "T";
     int res=0;
     int escrito;
     struct cabecera cab;
     cab.long1=htonl(strlen(str));
-    cab.long2=htonl(0);
+    cab.long2=htonl(strlen(uuid));
     cab.long3=htonl(0);
-    struct iovec iov[2];
-    iov[0].iov_base=&cab;
-    iov[0].iov_len=sizeof(cab);
-    iov[1].iov_base=str;
-    iov[1].iov_len=strlen(str);
-    if((escrito=writev(client_socket,iov,2))<0){
-        perror("Error en el writev\n");
-        close(client_socket);
-        return -1;
-    }
-    recv(client_socket, &res, sizeof(res), MSG_WAITALL);
-    return res;
-}
-int clients(){ // cuántos clientes existen en el sistema
-    char *str= "C";
-    int res=0;
-    int escrito;
-    struct cabecera cab;
-    cab.long1=htonl(strlen(str));
-    cab.long2=htonl(0);
-    cab.long3=htonl(0);
-    struct iovec iov[2];
-    iov[0].iov_base=&cab;
-    iov[0].iov_len=sizeof(cab);
-    iov[1].iov_base=str;
-    iov[1].iov_len=strlen(str);
-    if((escrito=writev(client_socket,iov,2))<0){
-        perror("Error en el writev\n");
-        close(client_socket);
-        return -1;
-    }
-    recv(client_socket, &res, sizeof(res), MSG_WAITALL);
-    return res;
-}
-int subscribers(const char *tema){ // cuántos subscriptores tiene este tema
-    int res;
-    int escrito;
-    struct cabecera cab;
-    /* char str[strlen(tema)+1];
-    for(int i=0; i<strlen(tema)+1; i++){
-        if(i==0)str[i]='N';
-        else str[i]=tema[i-1];
-    }
-    printf("%s\n", str); */
-    char * oper = "N";
-    cab.long1=htonl(strlen(oper));
-    cab.long2=htonl(strlen(tema));
-    cab.long3=htonl(0);
+    cab.long4=htonl(0);
     struct iovec iov[3];
     iov[0].iov_base=&cab;
     iov[0].iov_len=sizeof(cab);
-    iov[1].iov_base=oper;
-    iov[1].iov_len=strlen(oper);
-    iov[2].iov_base=tema;
-    iov[2].iov_len=strlen(tema);
+    iov[1].iov_base=str;
+    iov[1].iov_len=strlen(str);
+    iov[2].iov_base=uuid;
+    iov[2].iov_len=strlen(uuid);
     if((escrito=writev(client_socket,iov,3))<0){
         perror("Error en el writev\n");
         close(client_socket);
         return -1;
     }
     recv(client_socket, &res, sizeof(res), MSG_WAITALL);
+    //close(client_socket);
     return res;
 }
-int events() { // nº eventos pendientes de recoger por este cliente
-    char *str= "E";
+int clients(){ // cuántos clientes existen en el sistema
+    
+    //client_socket = crear_y_conectar();
+
+    char *str= "C";
     int res=0;
     int escrito;
     struct cabecera cab;
     cab.long1=htonl(strlen(str));
-    cab.long2=htonl(0);
+    cab.long2=htonl(strlen(uuid));
     cab.long3=htonl(0);
-    struct iovec iov[2];
+    cab.long4=htonl(0);
+    struct iovec iov[3];
     iov[0].iov_base=&cab;
     iov[0].iov_len=sizeof(cab);
     iov[1].iov_base=str;
     iov[1].iov_len=strlen(str);
-    if((escrito=writev(client_socket,iov,2))<0){
+    iov[2].iov_base=uuid;
+    iov[2].iov_len=strlen(uuid);
+    if((escrito=writev(client_socket,iov,3))<0){
         perror("Error en el writev\n");
         close(client_socket);
         return -1;
     }
     recv(client_socket, &res, sizeof(res), MSG_WAITALL);
+    //close(client_socket);
+    return res;
+}
+int subscribers(const char *tema){ // cuántos subscriptores tiene este tema
+    
+    //client_socket = crear_y_conectar();
+
+    int res;
+    int escrito;
+    struct cabecera cab;
+
+    char * oper = "N";
+    cab.long1=htonl(strlen(oper));
+    cab.long2=htonl(strlen(uuid));
+    cab.long3=htonl(strlen(tema));
+    cab.long4=htonl(0);
+    struct iovec iov[4];
+    iov[0].iov_base=&cab;
+    iov[0].iov_len=sizeof(cab);
+    iov[1].iov_base=oper;
+    iov[1].iov_len=strlen(oper);
+    iov[2].iov_base=uuid;
+    iov[2].iov_len=strlen(uuid);
+    iov[3].iov_base=tema;
+    iov[3].iov_len=strlen(tema);
+    
+    if((escrito=writev(client_socket,iov,4))<0){
+        perror("Error en el writev\n");
+        close(client_socket);
+        return -1;
+    }
+    recv(client_socket, &res, sizeof(res), MSG_WAITALL);
+    //close(client_socket);
+    return res;
+}
+int events() { // nº eventos pendientes de recoger por este cliente
+    
+    //client_socket = crear_y_conectar();
+
+    char *str= "E";
+    int res=0;
+    int escrito;
+    struct cabecera cab;
+    cab.long1=htonl(strlen(str));
+    cab.long2=htonl(strlen(uuid));
+    cab.long3=htonl(0);
+    cab.long4=htonl(0);
+    struct iovec iov[3];
+    iov[0].iov_base=&cab;
+    iov[0].iov_len=sizeof(cab);
+    iov[1].iov_base=str;
+    iov[1].iov_len=strlen(str);
+    iov[2].iov_base=uuid;
+    iov[2].iov_len=strlen(uuid);
+    if((escrito=writev(client_socket,iov,3))<0){
+        perror("Error en el writev\n");
+        close(client_socket);
+        return -1;
+    }
+    recv(client_socket, &res, sizeof(res), MSG_WAITALL);
+    //close(client_socket);
     return res;
 }
 

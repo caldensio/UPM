@@ -21,6 +21,7 @@ struct cabecera{
     int long1;
     int long2;
     int long3;
+    int long4;
 };
 
 typedef struct cliente{
@@ -44,7 +45,7 @@ typedef struct evento{
 cliente* nuevo_cliente(char * uuid_cliente){
     int error;
     if(map_size(mapa_cliente)>0){
-        cliente *c = map_get(mapa_cliente, (const void*)uuid_cliente, &error);
+        cliente *c = map_get(mapa_cliente, uuid_cliente, &error);
         if(error==0){
             printf("Usuario ya registrado en el sistema. Recuperando informacion...\n");
             return c;
@@ -61,7 +62,6 @@ cliente* nuevo_cliente(char * uuid_cliente){
 
 int borrar_cliente(cliente* c){
     //Dar de baja de todos los temas suscritos
-    printf("Entra\n");
     set_iter *iter=set_iter_init(c->set_temas);
     for(;set_iter_has_next(iter); set_iter_next(iter)){
         tema * t = (tema *)set_iter_value(iter);
@@ -194,22 +194,40 @@ int get(int socket_con, cliente *c){
 } 
 
 
-void check_msg(char * oper, char * buf, int socket_con, cliente* c){
+void check_msg(char * oper, char * buf, int socket_con, UUID_t uuid){
     char selector=oper[0];
+    printf("Entra\n");
     if(selector=='C'){
         int n_clientes=map_size(mapa_cliente);
         send(socket_con, &n_clientes, sizeof(n_clientes), MSG_WAITALL);
     }
+    else if(selector == 'R'){
+        cliente * c = nuevo_cliente(uuid);
+        int res;
+        if(c!=NULL){ 
+            res = 0;
+            send(socket_con, &res, sizeof(res), MSG_WAITALL);
+        }
+        else{ 
+            send(socket_con, &res, sizeof(res), MSG_WAITALL);
+        }
+    }
     else if(selector=='B'){
+        int error;
+        cliente * c = map_get(mapa_cliente, uuid, &error);
         int res=borrar_cliente(c);
         send(socket_con, &res, sizeof(res), MSG_WAITALL);
         close(socket_con);
     } 
     else if(selector=='S'){
+        int error;
+        cliente * c = map_get(mapa_cliente, uuid, &error);
         int res=suscribirse(c,buf);
         send(socket_con, &res, sizeof(res), MSG_WAITALL);
     }
     else if(selector=='U'){
+        int error;
+        cliente * c = map_get(mapa_cliente, uuid, &error);
         int res=desuscribirse(c,buf);
         send(socket_con, &res, sizeof(res), MSG_WAITALL);
     }
@@ -218,10 +236,14 @@ void check_msg(char * oper, char * buf, int socket_con, cliente* c){
         send(socket_con, &n_temas, sizeof(n_temas), MSG_WAITALL);
     }
     else if(selector=='E'){
+        int error;
+        cliente * c = map_get(mapa_cliente, uuid, &error);
         int n_eventos_pend=queue_length(c->cola_eventos);
         send(socket_con, &n_eventos_pend, sizeof(n_eventos_pend), MSG_WAITALL);
     }
     else if(selector=='G'){
+        int error;
+        cliente * c = map_get(mapa_cliente, uuid, &error);
         get(socket_con, c);
     }
     else if(selector=='N'){
@@ -238,7 +260,7 @@ void check_msg(char * oper, char * buf, int socket_con, cliente* c){
     
 }
 
-void check_dbl_msg(char * oper, char * tema, char* evento, uint32_t *tam_evento, int socket_con, cliente *c){
+void check_dbl_msg(char * oper, char * tema, char* evento, uint32_t *tam_evento, int socket_con, UUID_t uuid){
     char selector=oper[0];
     if(selector=='P'){
         int res = publicar(tema,evento, tam_evento);
@@ -251,59 +273,48 @@ void *servicio(void *arg){
         int socket_con;
         socket_con=(long) arg;
         struct cabecera cab;
-        printf("Nuevo cliente\n");
-        UUID_t uuid_cliente;
-        recv(socket_con, uuid_cliente, sizeof(uuid_cliente), MSG_WAITALL);
-        cliente* c=nuevo_cliente(uuid_cliente);
-        int conf = 0;
-        send(socket_con, &conf, sizeof(conf), MSG_WAITALL);
-        while(!fcntl(socket_con,F_GETFD)){
-        recv(socket_con,&cab,sizeof(cab),MSG_WAITALL);
+        while(recv(socket_con,&cab,sizeof(cab),MSG_WAITALL)>0){  
         int tam1=ntohl(cab.long1);
         int tam2=ntohl(cab.long2);
         int tam3=ntohl(cab.long3);
+        int tam4=ntohl(cab.long4);
         char * oper = malloc(tam1+1);
+        char * uuid = malloc(tam2+1);
         char * dato1 = NULL;
         char * dato2 = NULL;
-        if (tam2 > 0) dato1 = malloc(tam2+1);
-        if (tam3 > 0) dato2 = malloc(tam3+1);
+        if (tam3 > 0) dato1 = malloc(tam3+1);
+        if (tam4 > 0) dato2 = malloc(tam4+1);
         recv(socket_con, oper, tam1, MSG_WAITALL);
+        recv(socket_con, uuid, tam2, MSG_WAITALL);
             if (tam1>0){
+                printf("pasa\n");
                 oper[tam1]='\0';
+                uuid[tam2]='\0';
                 if(dato2==NULL){
+                    printf("que\n");
                     if(dato1==NULL){
-                        check_msg(oper, dato1,socket_con,c);
+                        printf("wut\n");
+                        check_msg(oper, dato1,socket_con,uuid);
                     }
                     else{
-                        recv(socket_con, dato1, tam2, MSG_WAITALL);
-                        dato1[tam2]='\0';
-                        check_msg(oper,dato1,socket_con,c);
+                        printf("pasa2\n");
+                        recv(socket_con, dato1, tam3, MSG_WAITALL);
+                        printf("pasa3\n");
+                        dato1[tam3]='\0';
+                        check_msg(oper,dato1,socket_con,uuid);
                     }
                 }
                 else{
-                    recv(socket_con, dato1, tam2, MSG_WAITALL);
-                    dato1[tam2]='\0';
-                    recv(socket_con, dato2, tam3, MSG_WAITALL);
-                    dato2[tam3]='\0';
-                    check_dbl_msg(oper,dato1,dato2,tam3,socket_con,c);
+                    printf("wot\n");
+                    recv(socket_con, dato1, tam3, MSG_WAITALL);
+                    dato1[tam3]='\0';
+                    recv(socket_con, dato2, tam4, MSG_WAITALL);
+                    dato2[tam4]='\0';
+                    check_dbl_msg(oper,dato1,dato2,tam4,socket_con,uuid);
 
                 }
-
             }
-            /* if(oper[tam1-1]!=0){    
-                oper[tam1]='\0';
-                if (tam2!=0){ 
-                    char * dato2 = malloc(tam2+1);
-                    recv(socket_con, dato2, tam2, MSG_WAITALL);
-                    dato2[tam2]='\0';
-                    check_dbl_msg(oper,dato2,tam2,socket_con,c);
-                    }
-                else{ 
-                    check_msg(oper, socket_con, c);
-                }
-            } */     
-        }
-        printf("Cliente desconectado\n");
+        }   
         close(socket_con);
 	return NULL;
 }
